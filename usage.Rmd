@@ -1,0 +1,171 @@
+---
+title: "encryptr"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r include=FALSE}
+library(tidyverse)
+library(encryptr)
+```
+
+
+To use, clone directory to deskop folder and unzip there as well,
+Open the .Rprog file to open project and run
+
+
+```{r eval=FALSE, include=TRUE}
+source('data-raw/index.R')
+```
+
+
+This chunk of code creates a file data/password_hash_table.rda in your project folder 
+which would hold the index table for the encryption process, in this tutorial, we would 
+be using this package would be to store passwords and create hash characters
+
+However, if you would like an end-to-end encyption process, for text, files, etc you
+could get in touch with me [here](mailto:edgarjohn95@gmail.com) 
+
+To ensure every user has an absolutely different set of rules for the program, 
+you would first have to generate your index table yourself assigning values to
+alphanumeric characters from a random selection of 1000 possible values by running
+
+From the tabs at the top of RStudio IDE, Click on Build, and click on Install and Restart.
+This would build the package on your machine and install it 
+
+This package is used to create hash characters. Example usage include:
+
+- encrypt user passwords to provide extra security
+- create hash ids for blockchain transactions 
+
+
+### user passwords
+
+
+Let's create a function that takes in a username and a password and returns a 
+row of data with username and encrypted password
+
+
+```{r example_user}
+store_user_data <- function(username, password){
+  data.frame(
+    username = username,
+    encrypted_password = encrypt(password),
+    # ensures values are stored as characters and not factored 
+    stringsAsFactors = F
+  )
+}
+
+# call store_user_data on user with username:new_user & password:password123
+# store the result in an object, example_user
+example_user <- store_user_data("new_user", "password123")
+
+example_user
+```
+
+
+In this case, your program takes in a password in plain text and encrypts it before 
+it searches the dataframe. 
+
+
+In a case where your dataframe is leaked, and the 
+encrypted password is passed as a parameter, authentication would fail. 
+To show the value that would be returned in this case, you could run 
+
+
+```{r}
+user_login_data <- data.frame(
+  # generate a list of users from user1 to user 10
+  username = paste("user", 1:10, sep = ""),
+  # create random passwords by adding a random 4 digit number to "pass"
+  password = paste("pass", 
+                   sample(1000:9999, 10) %>% as.character(),
+                   sep = ""
+                   ),
+  stringsAsFactors = F
+) %>% mutate(encrypted_password = purrr::map_chr(password, encrypt))
+
+user_login_data
+
+user_authentication <- function(username, password){
+  # get password from user and encrpyt before data is sent from user
+  password <- encrypt(password)
+  # search user login dataframe and check is password matches selected user
+  user_login_data[user_login_data$username == username & user_login_data$encrypted_password == password,] %>% select(username, encrypted_password)
+}
+
+
+# This would be a situation where encrypt is called twice on a password
+encrypt_twice <- function(x)encrypt(x) %>% encrypt()
+
+once <- user_login_data[1,]$encrypted_password
+twice <- once %>% encrypt_twice()
+list(# list out user1 details
+     as.list(user_login_data[1,]),
+     # raw text of calling this function twice
+     encrypt_twice = twice, 
+     # search table for when user enters ...
+     # password used to sign up
+     search = user_authentication("user1", user_login_data$password[1]),
+     # password from main database
+     search = user_authentication("user1", twice),
+     # password with caps lock on
+     search = user_authentication("user1", once %>% toupper()),
+     # miss the last character?
+     search = user_authentication("user1", once %>% substr(1,7)),
+     # miss the last character?
+     search = user_authentication("user1", once %>% substr(2,8))
+     )
+```
+
+
+## hash ids for blockchain transactions
+
+
+In a case where you would want to use the program to create unique hash ids for transactions,
+you could use the encrypt function to generate ids, You might ask why not just use sys.time()
+as an id? If another user has access to a timeframe that a transaction was performed, it is 
+easier to find the transaction id assuming it's to be kept secret
+
+If you would like to use this reproducibly, it is recomended you get the id once and send the
+ids to both parties
+
+Here's an example of seven transactions made exactly 4 hours apart from each other, even when 
+transaction times are very similar, you could still see the difference in the ids
+
+```{r}
+transact_times <- c(
+  Sys.time() - 8.64e04,
+  Sys.time() - 7.20e04,
+  Sys.time() - 5.76e04,
+  Sys.time() - 4.32e04,
+  Sys.time() - 2.88e04,
+  Sys.time() - 1.44e04,
+  Sys.time()
+)
+
+data.frame(
+  Timestamp = map_chr(transact_times, prettydates::short_dt12_us_w),
+  Id = map_chr(transact_times, encrypt),
+  stringsAsFactors = F
+)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
